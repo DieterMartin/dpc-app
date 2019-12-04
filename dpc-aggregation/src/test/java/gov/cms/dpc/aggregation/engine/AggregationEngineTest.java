@@ -110,7 +110,8 @@ class AggregationEngineTest {
                 orgID,
                 TEST_PROVIDER_ID,
                 Collections.singletonList(MockBlueButtonClient.TEST_PATIENT_IDS.get(0)),
-                Collections.singletonList(ResourceType.Patient)
+                Collections.singletonList(ResourceType.Patient),
+                null
         );
 
         // Work the batch
@@ -139,7 +140,8 @@ class AggregationEngineTest {
                 orgID,
                 TEST_PROVIDER_ID,
                 Collections.singletonList(MockBlueButtonClient.TEST_PATIENT_IDS.get(0)),
-                JobQueueBatch.validResourceTypes
+                JobQueueBatch.validResourceTypes,
+                null
         );
 
         // Work the batch
@@ -167,7 +169,8 @@ class AggregationEngineTest {
                 orgID,
                 TEST_PROVIDER_ID,
                 Arrays.asList("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"),
-                JobQueueBatch.validResourceTypes
+                JobQueueBatch.validResourceTypes,
+                null
         );
 
         // Assert the queue size
@@ -187,7 +190,8 @@ class AggregationEngineTest {
                 orgID,
                 TEST_PROVIDER_ID,
                 MockBlueButtonClient.TEST_PATIENT_IDS,
-                JobQueueBatch.validResourceTypes
+                JobQueueBatch.validResourceTypes,
+                null
         );
 
         // Work the batch
@@ -223,7 +227,8 @@ class AggregationEngineTest {
                 orgID,
                 TEST_PROVIDER_ID,
                 MockBlueButtonClient.TEST_PATIENT_IDS,
-                Collections.singletonList(ResourceType.Patient)
+                Arrays.asList(ResourceType.Patient),
+                null
         );
 
         // Work the batch
@@ -257,7 +262,8 @@ class AggregationEngineTest {
                 orgID,
                 TEST_PROVIDER_ID,
                 List.of(),
-                Collections.singletonList(ResourceType.Patient)
+                Collections.singletonList(ResourceType.Patient),
+                null
         );
 
         // Work the batch
@@ -287,7 +293,8 @@ class AggregationEngineTest {
                 orgID,
                 TEST_PROVIDER_ID,
                 MockBlueButtonClient.TEST_PATIENT_IDS,
-                Collections.singletonList(ResourceType.Schedule)
+                Collections.singletonList(ResourceType.Schedule),
+                null
         );
 
         // Work the batch
@@ -316,7 +323,8 @@ class AggregationEngineTest {
                 orgID,
                 TEST_PROVIDER_ID,
                 patientIDs,
-                List.of(ResourceType.ExplanationOfBenefit, ResourceType.Patient)
+                List.of(ResourceType.ExplanationOfBenefit, ResourceType.Patient),
+                null
         );
 
         // Work the batch
@@ -368,7 +376,8 @@ class AggregationEngineTest {
                 orgID,
                 TEST_PROVIDER_ID,
                 Collections.singletonList("1"),
-                Collections.singletonList(ResourceType.Patient)
+                Collections.singletonList(ResourceType.Patient),
+                null
         );
 
         // Work the batch

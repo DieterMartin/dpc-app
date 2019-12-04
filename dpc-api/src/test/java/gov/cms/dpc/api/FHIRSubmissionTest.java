@@ -29,6 +29,7 @@ import org.mockito.Mockito;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -71,7 +72,7 @@ class FHIRSubmissionTest {
     @BeforeAll
     static void setup() {
         mockClient();
-        doCallRealMethod().when(queue).createJob(Mockito.any(UUID.class), Mockito.anyString(), Mockito.anyList(), Mockito.anyList());
+        doCallRealMethod().when(queue).createJob(Mockito.any(UUID.class), Mockito.anyString(), Mockito.anyList(), Mockito.anyList(), Mockito.any(OffsetDateTime.class));
     }
 
     @Test

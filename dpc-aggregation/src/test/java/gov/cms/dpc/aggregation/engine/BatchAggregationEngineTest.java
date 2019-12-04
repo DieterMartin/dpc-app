@@ -76,7 +76,8 @@ class BatchAggregationEngineTest {
                 orgID,
                 TEST_PROVIDER_ID,
                 Collections.singletonList(MockBlueButtonClient.TEST_PATIENT_IDS.get(0)),
-                Collections.singletonList(ResourceType.ExplanationOfBenefit)
+                Collections.singletonList(ResourceType.ExplanationOfBenefit),
+                null
         );
 
         // Do the job
@@ -109,7 +110,8 @@ class BatchAggregationEngineTest {
                 orgID,
                 TEST_PROVIDER_ID,
                 MockBlueButtonClient.TEST_PATIENT_IDS,
-                JobQueueBatch.validResourceTypes
+                JobQueueBatch.validResourceTypes,
+                null
         );
 
         // Do the job
@@ -145,7 +147,8 @@ class BatchAggregationEngineTest {
                 orgID,
                 TEST_PROVIDER_ID,
                 MockBlueButtonClient.TEST_PATIENT_WITH_BAD_IDS,
-                Collections.singletonList(ResourceType.ExplanationOfBenefit)
+                Collections.singletonList(ResourceType.ExplanationOfBenefit),
+                null
         );
 
         // Do the job

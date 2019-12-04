@@ -17,6 +17,7 @@ import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
@@ -86,9 +87,8 @@ class QueueTest {
         final UUID orgID = UUID.randomUUID();
 
         // Add a couple of jobs
-        var firstJobID = queue.createJob(orgID, "test-provider-1", List.of("test-patient-1", "test-patient-2"), Collections.singletonList(ResourceType.Patient));
-        var secondJobID = queue.createJob(orgID, "test-provider-1", List.of("test-patient-1", "test-patient-2"), Collections.singletonList(ResourceType.Patient));
-
+        var firstJobID = queue.createJob(orgID, "test-provider-1", List.of("test-patient-1", "test-patient-2"), Collections.singletonList(ResourceType.Patient), null);
+        var secondJobID = queue.createJob(orgID, "test-provider-1", List.of("test-patient-1", "test-patient-2"), Collections.singletonList(ResourceType.Patient), null);
         assertEquals(2, queue.queueSize(), "Should have 2 jobs");
 
         // Check the status of the job
@@ -158,7 +158,7 @@ class QueueTest {
     void testPatientAndEOBSubmission(JobQueueCommon queue) {
         // Add a job with a EOB resource
         final var orgID = UUID.randomUUID();
-        final var jobID = queue.createJob(orgID, "test-provider-1", List.of("test-patient-1", "test-patient-2"), Arrays.asList(ResourceType.Patient, ResourceType.ExplanationOfBenefit));
+        final var jobID = queue.createJob(orgID, "test-provider-1", List.of("test-patient-1", "test-patient-2"), Arrays.asList(ResourceType.Patient, ResourceType.ExplanationOfBenefit), null);
 
         // Retrieve the job with both resources
         final var workBatch = queue.claimBatch(aggregatorID).get();
@@ -201,7 +201,9 @@ class QueueTest {
                 orgID,
                 "test-provider-1",
                 Collections.singletonList("test-patient-1"),
-                Collections.singletonList(ResourceType.ExplanationOfBenefit)
+                Collections.singletonList(ResourceType.ExplanationOfBenefit),
+                null,
+                OffsetDateTime.now()
         );
 
         // Set the aggregatorID to something random so it gets claimed incorrectly

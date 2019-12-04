@@ -1,7 +1,11 @@
 package gov.cms.dpc.api.resources.v1;
 
+import ca.uhn.fhir.model.primitive.DateTimeDt;
+import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.param.DateParam;
+import ca.uhn.fhir.rest.param.ParamPrefixEnum;
 import com.codahale.metrics.annotation.ExceptionMetered;
 import com.codahale.metrics.annotation.Timed;
 import gov.cms.dpc.api.auth.OrganizationPrincipal;
@@ -25,6 +29,8 @@ import javax.inject.Inject;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Response;
 import java.net.URI;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -230,12 +236,12 @@ public class GroupResource extends AbstractGroupResource {
                            @QueryParam("_type") String resourceTypes,
                            @ApiParam(value = "Output format of requested data", allowableValues = FHIR_NDJSON, defaultValue = FHIR_NDJSON)
                            @QueryParam("_outputFormat") String outputFormat,
-                           @ApiParam(value = "Request data that has been updated after the given point. (Not implemented yet)", hidden = true)
+                           @ApiParam(value = "Request data that has been updated after the given point.")
                            @QueryParam("_since") String since) {
         logger.debug("Exporting data for provider: {}", rosterID);
 
         // Check the parameters
-        checkExportRequest(outputFormat, since);
+        checkExportRequest(outputFormat);
 
         // Get the attributed patients
         final List<String> attributedPatients = fetchPatientMBIs(rosterID);
@@ -245,7 +251,8 @@ public class GroupResource extends AbstractGroupResource {
 
         // Handle the _type query parameter
         final var resources = handleTypeQueryParam(resourceTypes);
-        final UUID jobID = this.queue.createJob(orgID, rosterID, attributedPatients, resources);
+        final var sinceDate = handleSinceQueryParam(since);
+        final UUID jobID = this.queue.createJob(orgID, rosterID, attributedPatients, resources, sinceDate);
 
         return Response.status(Response.Status.ACCEPTED)
                 .contentLocation(URI.create(this.baseURL + "/Jobs/" + jobID)).build();
@@ -289,18 +296,32 @@ public class GroupResource extends AbstractGroupResource {
     }
 
     /**
+     * Convert the '_since' {@link QueryParam} to a Date
+     *
+     * @param since - {@link String} a
+     * @return - A {@link OffsetDateTime} for this since.
+     */
+    private OffsetDateTime handleSinceQueryParam(String since) {
+        if (StringUtils.isEmpty(since)) {
+            return null;
+        }
+        // check that _since is a valid time
+        try {
+            var dt = new DateTimeDt();
+            dt.setValueAsString(since);
+            return dt.getValue().toInstant().atOffset(ZoneOffset.UTC);
+        } catch (DataFormatException ex) {
+            throw new BadRequestException("'_since' query parameter must be a valid date time value");
+        }
+    }
+
+    /**
      * Check the query parameters of the request. If valid, return empty. If not valid,
      * return an error response with an {@link OperationOutcome} in the body.
      *
      * @param outputFormat param to check
-     * @param since        param to check
      */
-    private static void checkExportRequest(String outputFormat, String since) {
-        // _since is unsupported
-        if (StringUtils.isNotEmpty(since)) {
-            throw new BadRequestException("'_since' is not supported");
-        }
-
+    private static void checkExportRequest(String outputFormat) {
         // _outputFormat only supports FHIR_NDJSON
         if (StringUtils.isNotEmpty(outputFormat) && !FHIR_NDJSON.equals(outputFormat)) {
             throw new BadRequestException("'_outputFormat' query parameter must be 'application/fhir+ndjson'");
