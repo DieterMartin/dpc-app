@@ -4,8 +4,6 @@ import ca.uhn.fhir.model.primitive.DateTimeDt;
 import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
-import ca.uhn.fhir.rest.param.DateParam;
-import ca.uhn.fhir.rest.param.ParamPrefixEnum;
 import com.codahale.metrics.annotation.ExceptionMetered;
 import com.codahale.metrics.annotation.Timed;
 import gov.cms.dpc.api.auth.OrganizationPrincipal;

@@ -6,6 +6,7 @@ import io.reactivex.Observable;
 import org.hl7.fhir.dstu3.model.ResourceType;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -24,17 +25,18 @@ public abstract class JobQueueCommon implements IJobQueue {
     @Override
     public UUID createJob(UUID orgID, String providerID, List<String> patients, List<ResourceType> resourceTypes, OffsetDateTime since) {
         final UUID jobID = UUID.randomUUID();
-        final var submitTime = OffsetDateTime.now();
+
+        final var transactionTime = OffsetDateTime.now(ZoneOffset.UTC);
 
         List<JobQueueBatch> jobBatches = Observable.fromIterable(patients)
                 .buffer(batchSize)
-                .map(patientBatch -> this.createJobBatch(jobID, orgID, providerID, patientBatch, resourceTypes, since, submitTime))
+                .map(patientBatch -> this.createJobBatch(jobID, orgID, providerID, patientBatch, resourceTypes, since, transactionTime))
                 .toList()
                 .blockingGet();
 
         // Expect a single empty job when no patients passed
         if ( jobBatches.isEmpty() && patients.isEmpty() ) {
-            jobBatches.add(this.createJobBatch(jobID, orgID, providerID, Collections.emptyList(), resourceTypes, since, submitTime));
+            jobBatches.add(this.createJobBatch(jobID, orgID, providerID, Collections.emptyList(), resourceTypes, since, transactionTime));
         }
 
         // Set the priority of a job batch
@@ -52,8 +54,8 @@ public abstract class JobQueueCommon implements IJobQueue {
                                            List<String> patients,
                                            List<ResourceType> resourceTypes,
                                            OffsetDateTime since,
-                                           OffsetDateTime submitTime) {
-        return new JobQueueBatch(jobID, orgID, providerID, patients, resourceTypes, since, submitTime);
+                                           OffsetDateTime transactionTime) {
+        return new JobQueueBatch(jobID, orgID, providerID, patients, resourceTypes, since, transactionTime);
     }
 
     public int getBatchSize() {

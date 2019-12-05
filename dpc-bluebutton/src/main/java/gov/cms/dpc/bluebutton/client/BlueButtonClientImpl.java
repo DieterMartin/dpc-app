@@ -3,6 +3,7 @@ package gov.cms.dpc.bluebutton.client;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.gclient.ICriterion;
 import ca.uhn.fhir.rest.gclient.ReferenceClientParam;
+import ca.uhn.fhir.rest.param.DateRangeParam;
 import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
@@ -59,13 +60,11 @@ public class BlueButtonClientImpl implements BlueButtonClient {
      * @throws ResourceNotFoundException when no such patient with the provided ID exists
      */
     @Override
-    public Patient requestPatientFromServer(String patientID) throws ResourceNotFoundException {
+    public Bundle requestPatientFromServer(String patientID, DateRangeParam lastUpdated) throws ResourceNotFoundException {
         logger.debug("Attempting to fetch patient ID {} from baseURL: {}", patientID, client.getServerBase());
-        return instrumentCall(REQUEST_PATIENT_METRIC, () -> client
-                .read()
-                .resource(Patient.class)
-                .withId(patientID)
-                .execute());
+        ICriterion<ReferenceClientParam> criterion = new ReferenceClientParam(Patient.SP_RES_ID).hasId(patientID);
+        return instrumentCall(REQUEST_EOB_METRIC, () ->
+                fetchBundle(Patient.class, criterion, patientID, lastUpdated));
     }
 
     /**
@@ -86,10 +85,10 @@ public class BlueButtonClientImpl implements BlueButtonClient {
      * @throws ResourceNotFoundException when the requested patient does not exist
      */
     @Override
-    public Bundle requestEOBFromServer(String patientID) {
+    public Bundle requestEOBFromServer(String patientID, DateRangeParam lastUpdated) {
         logger.debug("Attempting to fetch EOBs for patient ID {} from baseURL: {}", patientID, client.getServerBase());
         return instrumentCall(REQUEST_EOB_METRIC, () ->
-                fetchBundle(ExplanationOfBenefit.class, ExplanationOfBenefit.PATIENT.hasId(patientID), patientID));
+                fetchBundle(ExplanationOfBenefit.class, ExplanationOfBenefit.PATIENT.hasId(patientID), patientID, lastUpdated));
     }
 
     /**
@@ -110,10 +109,10 @@ public class BlueButtonClientImpl implements BlueButtonClient {
      * @throws ResourceNotFoundException when the requested patient does not exist
      */
     @Override
-    public Bundle requestCoverageFromServer(String patientID) throws ResourceNotFoundException {
+    public Bundle requestCoverageFromServer(String patientID, DateRangeParam lastUpdated) throws ResourceNotFoundException {
         logger.debug("Attempting to fetch Coverage for patient ID {} from baseURL: {}", patientID, client.getServerBase());
         return instrumentCall(REQUEST_COVERAGE_METRIC, () ->
-                fetchBundle(Coverage.class, Coverage.BENEFICIARY.hasId(formBeneficiaryID(patientID)), patientID));
+                fetchBundle(Coverage.class, Coverage.BENEFICIARY.hasId(formBeneficiaryID(patientID)), patientID, lastUpdated));
     }
 
     @Override
@@ -142,14 +141,17 @@ public class BlueButtonClientImpl implements BlueButtonClient {
      * @param resourceClass - FHIR Resource class
      * @param criterion - For the resource class the correct criterion that matches the patientID
      * @param patientID - id of patient
+     * @param lastUpdated - the lastUpdated date to search for
      * @return FHIR Bundle resource
      */
     private <T extends IBaseResource> Bundle fetchBundle(Class<T> resourceClass,
                                                          ICriterion<ReferenceClientParam> criterion,
-                                                         String patientID) {
+                                                         String patientID,
+                                                         DateRangeParam lastUpdated) {
         final Bundle bundle = client.search()
                 .forResource(resourceClass)
                 .where(criterion)
+                .lastUpdated(lastUpdated)
                 .count(config.getResourcesCount())
                 .returnBundle(Bundle.class)
                 .execute();

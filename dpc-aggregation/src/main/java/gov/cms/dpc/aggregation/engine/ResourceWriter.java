@@ -14,6 +14,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -44,9 +45,9 @@ class ResourceWriter {
     /**
      * Create a context for fetching FHIR resources
      * @param fhirContext - the single context for the engine
-     * @param config - config to use for the engine
      * @param job - the context for logging and reporting
      * @param resourceType - the resource type to fetch
+     * @param config - config to use for the engine
      */
     ResourceWriter(FhirContext fhirContext,
                     JobQueueBatch job,

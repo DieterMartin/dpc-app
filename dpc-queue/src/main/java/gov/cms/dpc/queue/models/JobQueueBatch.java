@@ -106,6 +106,12 @@ public class JobQueueBatch implements Serializable {
     private OffsetDateTime since;
 
     /**
+     * The transaction time parameter from the job creation
+     */
+    @Column(name = "transaction_time", nullable = false)
+    private OffsetDateTime transactionTime;
+
+    /**
      * The current aggregator processing the batch. Null indicates no aggregator is processing the batch.
      */
     @Column(name = "aggregator_id")
@@ -153,16 +159,17 @@ public class JobQueueBatch implements Serializable {
                          List<String> patients,
                          List<ResourceType> resourceTypes,
                          OffsetDateTime since,
-                         OffsetDateTime submitTime) {
+                         OffsetDateTime transactionTime) {
         this.batchID = UUID.randomUUID();
         this.jobID = jobID;
         this.orgID = orgID;
         this.providerID = providerID;
         this.patients = patients;
         this.resourceTypes = resourceTypes;
-        this.status = JobStatus.QUEUED;
-        this.submitTime = submitTime;
         this.since = since;
+        this.transactionTime = transactionTime;
+        this.status = JobStatus.QUEUED;
+        this.submitTime = OffsetDateTime.now(ZoneOffset.UTC);
         this.jobQueueBatchFiles = new ArrayList<>();
     }
 
@@ -223,6 +230,10 @@ public class JobQueueBatch implements Serializable {
 
     public Optional<OffsetDateTime> getSince() {
         return Optional.ofNullable(since);
+    }
+
+    public OffsetDateTime getTransactionTime() {
+        return transactionTime;
     }
 
     public Optional<UUID> getAggregatorID() {
@@ -431,6 +442,7 @@ public class JobQueueBatch implements Serializable {
                 .append(patientIndex, that.patientIndex)
                 .append(resourceTypes, that.resourceTypes)
                 .append(since, that.since)
+                .append(transactionTime, that.transactionTime)
                 .append(aggregatorID, that.aggregatorID)
                 .append(updateTime, that.updateTime)
                 .append(submitTime, that.submitTime)
@@ -453,6 +465,7 @@ public class JobQueueBatch implements Serializable {
                 .append(patientIndex)
                 .append(resourceTypes)
                 .append(since)
+                .append(transactionTime)
                 .append(aggregatorID)
                 .append(updateTime)
                 .append(submitTime)
@@ -474,6 +487,7 @@ public class JobQueueBatch implements Serializable {
                 ", patientIndex=" + patientIndex +
                 ", resourceTypes=" + resourceTypes +
                 ", since=" + since +
+                ", transactionTime=" + transactionTime +
                 ", aggregatorID=" + aggregatorID +
                 ", updateTime=" + updateTime +
                 ", submitTime=" + submitTime +

@@ -1,5 +1,6 @@
 package gov.cms.dpc.bluebutton.client;
 
+import ca.uhn.fhir.rest.param.DateRangeParam;
 import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Guice;
@@ -26,10 +27,7 @@ import org.mockserver.model.Parameter;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.sql.Date;
-import java.util.Collections;
-import java.util.List;
-import java.util.MissingResourceException;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -38,9 +36,9 @@ import static org.junit.jupiter.api.Assertions.*;
 class BlueButtonClientTest {
     // A random example patient (Jane Doe)
     private static final String TEST_PATIENT_ID = "20140000008325";
-    // A patient that only has a single EOB record in bluebutton
+    // A patient that only has a single EOB record in BFD
     private static final String TEST_SINGLE_EOB_PATIENT_ID = "20140000009893";
-    // A patient id that should not exist in bluebutton
+    // A patient id that should not exist in BFD
     private static final String TEST_NONEXISTENT_PATIENT_ID = "31337";
 
     // Paths to test resources
@@ -49,6 +47,10 @@ class BlueButtonClientTest {
     private static final String SAMPLE_COVERAGE_PATH_PREFIX = "bb-test-data/coverage/";
     private static final String SAMPLE_PATIENT_PATH_PREFIX = "bb-test-data/patient/";
     private static final String[] TEST_PATIENT_IDS = {"20140000008325", "20140000009893"};
+
+    // lastUpdate date range to test
+    private static final DateRangeParam TEST_LAST_UPDATED = new DateRangeParam().setUpperBoundInclusive(new Date());
+    private static final String TEST_LAST_UPDATED_STRING = "le" + TEST_LAST_UPDATED.getUpperBound().getValueAsString();
 
     private static BlueButtonClient bbc;
     private static ClientAndServer mockServer;
@@ -65,24 +67,37 @@ class BlueButtonClientTest {
 
         for (String patientId : TEST_PATIENT_IDS) {
             createMockServerExpectation(
-                    "/v1/fhir/Patient/" + patientId,
+                    "/v1/fhir/Patient",
                     HttpStatus.OK_200,
                     getRawXML(SAMPLE_PATIENT_PATH_PREFIX + patientId + ".xml"),
-                    List.of()
+                    List.of(
+                            Parameter.param("_id", patientId),
+                            Parameter.param("_lastUpdated", TEST_LAST_UPDATED_STRING))
+            );
+
+            createMockServerExpectation(
+                    "/v1/fhir/Patient",
+                    HttpStatus.OK_200,
+                    getRawXML(SAMPLE_PATIENT_PATH_PREFIX + patientId + ".xml"),
+                    Collections.singletonList(Parameter.param("_id", patientId))
             );
 
             createMockServerExpectation(
                     "/v1/fhir/ExplanationOfBenefit",
                     HttpStatus.OK_200,
                     getRawXML(SAMPLE_EOB_PATH_PREFIX + patientId + ".xml"),
-                    Collections.singletonList(Parameter.param("patient", patientId))
+                    List.of(
+                            Parameter.param("patient", patientId),
+                            Parameter.param("_lastUpdated", TEST_LAST_UPDATED_STRING))
             );
 
             createMockServerExpectation(
                     "/v1/fhir/Coverage",
                     HttpStatus.OK_200,
                     getRawXML(SAMPLE_COVERAGE_PATH_PREFIX + patientId + ".xml"),
-                    Collections.singletonList(Parameter.param("beneficiary", "Patient/" + patientId))
+                    List.of(
+                            Parameter.param("beneficiary", "Patient/" + patientId),
+                            Parameter.param("_lastUpdated", TEST_LAST_UPDATED_STRING))
             );
         }
 
@@ -106,22 +121,35 @@ class BlueButtonClientTest {
 
     @Test
     void shouldGetFHIRFromPatientID() {
-        Patient ret = bbc.requestPatientFromServer(TEST_PATIENT_ID);
-
-        // Verify basic demo patient information
+        Bundle ret = bbc.requestPatientFromServer(TEST_PATIENT_ID, TEST_LAST_UPDATED);
+        // Verify that the bundle has one
         assertNotNull(ret, "The demo Patient object returned from BlueButtonClient should not be null");
+        assertEquals(ResourceType.Bundle, ret.getResourceType());
+        assertEquals(1, ret.getEntry().size());
+        assertEquals(ResourceType.Patient, ret.getEntry().get(0).getResource().getResourceType());
+        final var patient = (Patient) ret.getEntry().get(0).getResource();
 
         String patientDataCorrupted = "The demo Patient object data differs from what is expected";
-        assertEquals(ret.getBirthDate(), Date.valueOf("2014-06-01"), patientDataCorrupted);
-        assertEquals(ret.getGender().getDisplay(), "Unknown", patientDataCorrupted);
-        assertEquals(ret.getName().size(), 1, patientDataCorrupted);
-        assertEquals(ret.getName().get(0).getFamily(), "Doe", patientDataCorrupted);
-        assertEquals(ret.getName().get(0).getGiven().get(0).toString(), "Jane", patientDataCorrupted);
+        assertEquals(patient.getBirthDate(), java.sql.Date.valueOf("2014-06-01"), patientDataCorrupted);
+        assertEquals(patient.getGender().getDisplay(), "Unknown", patientDataCorrupted);
+        assertEquals(patient.getName().size(), 1, patientDataCorrupted);
+        assertEquals(patient.getName().get(0).getFamily(), "Doe", patientDataCorrupted);
+        assertEquals(patient.getName().get(0).getGiven().get(0).toString(), "Jane", patientDataCorrupted);
+    }
+
+    @Test
+    void shouldGetFHIRFromPatientIDWithoutLastUpdated() {
+        Bundle ret = bbc.requestPatientFromServer(TEST_PATIENT_ID, null);
+        // Verify that the bundle has one
+        assertNotNull(ret, "The demo Patient object returned from BlueButtonClient should not be null");
+        assertEquals(ResourceType.Bundle, ret.getResourceType());
+        assertEquals(1, ret.getEntry().size());
+        assertEquals(ResourceType.Patient, ret.getEntry().get(0).getResource().getResourceType());
     }
 
     @Test
     void shouldGetEOBFromPatientID() {
-        Bundle response = bbc.requestEOBFromServer(TEST_PATIENT_ID);
+        Bundle response = bbc.requestEOBFromServer(TEST_PATIENT_ID, TEST_LAST_UPDATED);
 
         assertNotNull(response, "The demo patient should have a non-null EOB bundle");
         assertEquals(32, response.getTotal(), "The demo patient should have exactly 32 EOBs");
@@ -129,7 +157,7 @@ class BlueButtonClientTest {
 
     @Test
     void shouldNotHaveNextBundle() {
-        Bundle response = bbc.requestEOBFromServer(TEST_SINGLE_EOB_PATIENT_ID);
+        Bundle response = bbc.requestEOBFromServer(TEST_SINGLE_EOB_PATIENT_ID, TEST_LAST_UPDATED);
 
         assertNotNull(response, "The demo patient should have a non-null EOB bundle");
         assertEquals(1, response.getTotal(), "The demo patient should have exactly 1 EOBs");
@@ -138,7 +166,7 @@ class BlueButtonClientTest {
 
     @Test
     void shouldHaveNextBundle() {
-        Bundle response = bbc.requestEOBFromServer(TEST_PATIENT_ID);
+        Bundle response = bbc.requestEOBFromServer(TEST_PATIENT_ID, TEST_LAST_UPDATED);
 
         assertNotNull(response, "The demo patient should have a non-null EOB bundle");
         assertNotNull(response.getLink(Bundle.LINK_NEXT), "Should have no next link since all the resources are in the bundle");
@@ -149,7 +177,7 @@ class BlueButtonClientTest {
 
     @Test
     void shouldReturnBundleContainingOnlyEOBs() {
-        Bundle response = bbc.requestEOBFromServer(TEST_PATIENT_ID);
+        Bundle response = bbc.requestEOBFromServer(TEST_PATIENT_ID, TEST_LAST_UPDATED);
 
         response.getEntry().forEach((entry) -> assertEquals(
                 entry.getResource().getResourceType(),
@@ -160,7 +188,7 @@ class BlueButtonClientTest {
 
     @Test
     void shouldGetCoverageFromPatientID() {
-        final Bundle response = bbc.requestCoverageFromServer(TEST_PATIENT_ID);
+        final Bundle response = bbc.requestCoverageFromServer(TEST_PATIENT_ID, TEST_LAST_UPDATED);
 
         assertNotNull(response, "The demo patient should have a non-null Coverage bundle");
         assertEquals(3, response.getTotal(), "The demo patient should have exactly 3 Coverage");
@@ -177,7 +205,7 @@ class BlueButtonClientTest {
 
     @Test
     void shouldHandlePatientsWithOnlyOneEOB() {
-        final Bundle response = bbc.requestEOBFromServer(TEST_SINGLE_EOB_PATIENT_ID);
+        final Bundle response = bbc.requestEOBFromServer(TEST_SINGLE_EOB_PATIENT_ID, TEST_LAST_UPDATED);
         assertEquals(1, response.getTotal(), "This demo patient should have exactly 1 EOB");
     }
 
@@ -185,13 +213,13 @@ class BlueButtonClientTest {
     void shouldThrowExceptionWhenResourceNotFound() {
         assertThrows(
                 ResourceNotFoundException.class,
-                () -> bbc.requestPatientFromServer(TEST_NONEXISTENT_PATIENT_ID),
+                () -> bbc.requestPatientFromServer(TEST_NONEXISTENT_PATIENT_ID, TEST_LAST_UPDATED),
                 "BlueButton client should throw exceptions when asked to retrieve a non-existent patient"
         );
 
         assertThrows(
                 ResourceNotFoundException.class,
-                () -> bbc.requestEOBFromServer(TEST_NONEXISTENT_PATIENT_ID),
+                () -> bbc.requestEOBFromServer(TEST_NONEXISTENT_PATIENT_ID, TEST_LAST_UPDATED),
                 "BlueButton client should throw exceptions when asked to retrieve EOBs for a non-existent patient"
         );
     }
