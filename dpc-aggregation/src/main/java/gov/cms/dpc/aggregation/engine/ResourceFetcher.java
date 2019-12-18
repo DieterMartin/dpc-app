@@ -132,6 +132,9 @@ class ResourceFetcher {
      */
     private Bundle fetchFirst(String patientID) {
         // Note: FHIR bulk spec says that since is exclusive and transactionTime is inclusive
+        // It is also says that all resources should not have lastUpdated after the transactionTime.
+        // This is true for the both the since and the non-since cases.
+        // BFD will include resources that do not have a lastUpdated if there isn't a complete range.
         final var lastUpdated = since != null ?
                 new DateRangeParam().setUpperBoundInclusive(Date.from(transactionTime.toInstant())).setLowerBoundExclusive(Date.from(since.toInstant())) :
                 new DateRangeParam().setUpperBoundInclusive(Date.from(transactionTime.toInstant()));
